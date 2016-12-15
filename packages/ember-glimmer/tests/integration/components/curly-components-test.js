@@ -2076,10 +2076,6 @@ moduleFor('Components test: curly components', class extends RenderingTest {
   }
 
   ['@test when a property is changed during children\'s rendering'](assert) {
-    if (isFeatureEnabled('ember-glimmer-allow-backtracking-rerender')) {
-      expectDeprecation(/modified value twice on <\(.+> in a single render/);
-    }
-
     let outer, middle;
 
     this.registerComponent('x-outer', {
@@ -2124,14 +2120,17 @@ moduleFor('Components test: curly components', class extends RenderingTest {
     assert.equal(this.$('#inner-value').text(), '1', 'initial render of inner');
     assert.equal(this.$('#middle-value').text(), '', 'initial render of middle (observers do not run during init)');
 
-    if (!isFeatureEnabled('ember-glimmer-allow-backtracking-rerender')) {
+    let expectedBacktrackingMessage = /modified "value" twice on <\(.+> in a single render\. It was rendered in "component:x-middle" and modified in "component:x-inner"/;
+
+    if (isFeatureEnabled('ember-glimmer-allow-backtracking-rerender')) {
+      expectDeprecation(expectedBacktrackingMessage);
+      this.runTask(() => outer.set('value', 2));
+    } else {
       expectAssertion(() => {
         this.runTask(() => outer.set('value', 2));
-      }, /modified value twice on <\(.+> in a single render/);
+      }, expectedBacktrackingMessage);
 
       return;
-    } else {
-      this.runTask(() => outer.set('value', 2));
     }
 
     assert.equal(this.$('#inner-value').text(), '2', 'second render of inner');
@@ -2149,11 +2148,7 @@ moduleFor('Components test: curly components', class extends RenderingTest {
   }
 
   ['@test when a shared dependency is changed during children\'s rendering'](assert) {
-    if (isFeatureEnabled('ember-glimmer-allow-backtracking-rerender')) {
-      expectDeprecation(/modified wrapper.content twice on <Ember.Object.+> in a single render/);
-    }
-
-    let outer, middle;
+    let outer; // middle
 
     this.registerComponent('x-outer', {
       ComponentClass: Component.extend({
@@ -2181,14 +2176,17 @@ moduleFor('Components test: curly components', class extends RenderingTest {
       template: '<div id="inner-value">{{wrapper.content}}</div>'
     });
 
-    if (!isFeatureEnabled('ember-glimmer-allow-backtracking-rerender')) {
+    let expectedBacktrackingMessage = /modified "wrapper\.content" twice on <Ember\.Object.+> in a single render\. It was rendered in "component:x-outer" and modified in "component:x-inner"/;
+
+    if (isFeatureEnabled('ember-glimmer-allow-backtracking-rerender')) {
+      expectDeprecation(expectedBacktrackingMessage);
+      this.render('{{x-outer}}');
+    } else {
       expectAssertion(() => {
         this.render('{{x-outer}}');
-      }, /modified wrapper.content twice on <Ember.Object.+> in a single render/);
+      }, expectedBacktrackingMessage);
 
       return;
-    } else {
-      this.render('{{x-outer}}');
     }
 
     assert.equal(this.$('#inner-value').text(), '1', 'initial render of inner');
